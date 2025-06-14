@@ -27,10 +27,12 @@ const RootLayout: React.FC<Readonly<RootLayoutProps>> = ({ children }) => {
   return (
     <html lang="en">
       <body className={`antialiased ${pretendard.variable}`}>
-        <Providers>
-          <RootLayoutHeader />
-          <main>{children}</main>
-        </Providers>
+        <div className="w-full h-full">
+          <Providers>
+            <RootLayoutHeader />
+            <main className="w-full min-h-[calc(100%-3.5rem)]">{children}</main>
+          </Providers>
+        </div>
       </body>
     </html>
   );
