@@ -11,13 +11,15 @@ interface UseEarthRenderer {
 const useEarthRenderer = ({ canvasRef, canvasSize }: UseEarthRenderer) => {
   const [rotation, setRotation] = useState<[number, number]>([0, -15]); // [경도, 위도]
   const [scale, setScale] = useState(canvasSize.width / 2.2);
-  const [land, setLand] = useState<any | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
 
+  const [countries, setCountries] = useState<any[]>([]);
+  const [hoveredCountry, setHoveredCountry] = useState<any | null>(null);
+
   const draw = useCallback(
-    (context: CanvasRenderingContext2D, land: any, projection: any) => {
-      if (!land) {
+    (context: CanvasRenderingContext2D, countries: any[], projection: any, hoveredCountry: any) => {
+      if (!countries.length) {
         return;
       }
 
@@ -44,25 +46,84 @@ const useEarthRenderer = ({ canvasRef, canvasSize }: UseEarthRenderer) => {
       landGradient.addColorStop(0.7, "#075211");
       landGradient.addColorStop(1, "#04370b");
 
-      context.beginPath();
       const path = geoPath(projection, context);
 
-      path(land);
-      context.fillStyle = landGradient;
-      context.fill();
+      for (let country of countries) {
+        context.beginPath();
+        path(country);
+        context.fillStyle = landGradient;
+        context.fill();
 
-      // 윤곽선
-      context.strokeStyle = "#555555";
-      context.stroke();
+        // 윤곽선
+        context.strokeStyle = "#555555";
+        context.lineWidth = 0.5;
+        context.stroke();
+      }
+
+      if (hoveredCountry) {
+        context.beginPath();
+        path(hoveredCountry);
+        context.fillStyle = "#f0751f ";
+        context.fill();
+        context.strokeStyle = "#777777";
+        context.lineWidth = 0.8;
+        context.stroke();
+      }
     },
-    [canvasSize],
+    [canvasSize, countries, hoveredCountry],
   );
 
+  const getCountryAtPoint = useCallback(
+    (mouseX: number, mouseY: number, projection: any, context: CanvasRenderingContext2D) => {
+      if (!countries.length) {
+        return null;
+      }
+
+      const tolerance = 3;
+
+      for (let dx = -tolerance; dx <= tolerance; dx++) {
+        for (let dy = -tolerance; dy <= tolerance; dy++) {
+          const checkX = mouseX + dx;
+          const checkY = mouseY + dy;
+
+          if (
+            checkX < 0 ||
+            checkY < 0 ||
+            checkX >= canvasSize.width ||
+            checkY >= canvasSize.height
+          ) {
+            continue;
+          }
+
+          const coords = projection.invert([checkX, checkY]);
+          if (!coords) {
+            continue;
+          }
+
+          const distance = projection([coords[0], coords[1]]);
+          if (!distance) {
+            continue;
+          }
+
+          for (const country of countries) {
+            if (geoContains(country, coords)) {
+              return country;
+            }
+          }
+        }
+      }
+
+      return null;
+    },
+    [countries, canvasSize],
+  );
   useEffect(() => {
     json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(
       (worldData: any) => {
-        const landFeature = feature(worldData, worldData.objects.countries);
-        setLand(landFeature);
+        const landFeature: any = feature(worldData, worldData.objects.countries);
+
+        const countryFeatures = landFeature.features;
+        setCountries(countryFeatures);
       },
     );
   }, []);
@@ -90,6 +151,14 @@ const useEarthRenderer = ({ canvasRef, canvasSize }: UseEarthRenderer) => {
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) {
+        const rect = canvas!.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const country = getCountryAtPoint(mouseX, mouseY, projection, context);
+        setHoveredCountry(country);
+
+        canvas!.style.cursor = country ? "pointer" : "grab";
         return;
       }
 
@@ -139,12 +208,12 @@ const useEarthRenderer = ({ canvasRef, canvasSize }: UseEarthRenderer) => {
         canvas.removeEventListener("wheel", handleWheel);
       }
     };
-  }, [canvasSize, rotation, scale, isDragging, lastMousePos]);
+  }, [canvasSize, rotation, scale, isDragging, lastMousePos, getCountryAtPoint]);
 
   // 회전 업데이트 시 다시 그리기
   useEffect(() => {
     const context = canvasRef.current?.getContext("2d");
-    if (!land || !context || canvasSize.width === 0) {
+    if (!countries.length || !context || canvasSize.width === 0) {
       return;
     }
 
@@ -154,8 +223,8 @@ const useEarthRenderer = ({ canvasRef, canvasSize }: UseEarthRenderer) => {
       .clipAngle(90)
       .rotate(rotation);
 
-    draw(context, land, projection);
-  }, [rotation, canvasSize, scale, land, draw]);
+    draw(context, countries, projection, hoveredCountry);
+  }, [rotation, canvasSize, scale, countries, hoveredCountry, draw]);
 };
 
 export default useEarthRenderer;
