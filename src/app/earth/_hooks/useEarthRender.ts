@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { geoOrthographic, geoPath, json } from "d3";
+import { geoOrthographic, geoPath, json, geoContains } from "d3";
 import { feature } from "topojson-client";
 
 // 지구 렌더링 훅
@@ -79,12 +79,9 @@ const useEarthRenderer = ({ canvasRef, canvasSize }: UseEarthRenderer) => {
       .translate([canvasSize.width / 2, canvasSize.height / 2])
       .clipAngle(90);
 
-    let land: any = null;
-
     // 회전 업데이트
     projection.rotate(rotation);
 
-    // 마우스 이벤트 핸들러
     const handleMouseDown = (e: MouseEvent) => {
       setIsDragging(true);
       setLastMousePos({ x: e.clientX, y: e.clientY });
@@ -115,11 +112,14 @@ const useEarthRenderer = ({ canvasRef, canvasSize }: UseEarthRenderer) => {
       canvas!.style.cursor = "grab";
     };
 
+    // 줌 기능
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      // 줌 기능 (선택사항)
-      const newScale = Math.max(50, Math.min(canvasSize.width, scale + (e.deltaY > 0 ? -20 : 20)));
-      setScale(newScale); // 상태로 저장
+      const newScale = Math.max(
+        50,
+        Math.min(canvasSize.width * 2, scale + (e.deltaY > 0 ? -60 : 60)),
+      );
+      setScale(newScale);
     };
 
     // 이벤트 리스너 등록
@@ -131,7 +131,6 @@ const useEarthRenderer = ({ canvasRef, canvasSize }: UseEarthRenderer) => {
       canvas.addEventListener("wheel", handleWheel);
     }
 
-    // 정리 함수
     return () => {
       if (canvas) {
         canvas.removeEventListener("mousedown", handleMouseDown);

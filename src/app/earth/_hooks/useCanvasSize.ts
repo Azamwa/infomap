@@ -5,8 +5,7 @@ const useCanvasSize = () => {
 
   useEffect(() => {
     const updateCanvasSize = () => {
-      const size = Math.min(window.innerWidth, window.innerHeight - 56);
-      setCanvasSize({ width: size, height: size });
+      setCanvasSize({ width: window.innerWidth, height: window.innerHeight - 56 });
     };
 
     updateCanvasSize();
