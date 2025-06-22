@@ -218,7 +218,7 @@ const useEarthRenderer = ({ canvasRef, canvasSize }: UseEarthRenderer) => {
     }
 
     const projection = geoOrthographic()
-      .scale(scale / 2.2)
+      .scale(scale)
       .translate([canvasSize.width / 2, canvasSize.height / 2])
       .clipAngle(90)
       .rotate(rotation);
